@@ -18,10 +18,10 @@ from controller import Controller
 from colorama import init, Fore
 from python_http_client.exceptions import UnauthorizedError
 
-def sendEmail(project, instances):
+def sendEmail(project, instances, fromEmail, toEmail):
 	sg = sendgrid.SendGridAPIClient(apikey=os.environ.get('SENDGRID_API_KEY'))
-	fromEmail = Email("mcdito13@gmail.com")
-	toEmail = Email("mcdito13@gmail.com")
+	fromEmail = Email(fromEmail)
+	toEmail = Email(toEmail)
 	subject = project + ' Instances Shut Down'
 	content = Content("text/plain", str(instances))
 	mail = Mail(fromEmail, subject, toEmail, content)
@@ -54,18 +54,20 @@ def shutDownAllRestServers(project):
 			serversShutDown.append(instance)
 	return serversShutDown
 
-def main(project, email):
+def main(project, email, fromEmail, toEmail):
 	init(autoreset=True)
 	serversShutDown = shutDownAllRestServers(project)
 	if email:
 		print('{:<50}'.format('Sending email ...'), end='', flush=True)
-		sendEmail(project, serversShutDown)
+		sendEmail(project, serversShutDown, fromEmail, toEmail)
 	print('Exiting cleaner.py')
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(
-		description="This script will shut down all rest servers not labeled as persistent in the project specified")
-	parser.add_argument("project", help="the name of your google cloud project")
-	parser.add_argument("-e", "--email", help="send an email containing the names of servers shut down", action="store_true")
+		description='This script will shut down all rest servers not labeled as persistent in the project specified')
+	parser.add_argument('project', help='the name of your google cloud project')
+	parser.add_argument('-e', help='send an email containing the names of servers shut down', action='store_true')
+	parser.add_argument('-fr', required='-e' in sys.argv, help='email will be sent from this address')
+	parser.add_argument('-to', required='-e' in sys.argv, help='email will be sent to this address')
 	args = parser.parse_args()
-	main(args.project, args.email)
+	main(args.project, args.e, args.fr, args.to)
