@@ -1,11 +1,8 @@
 '''
-    Author      : Mike Dito
-    Class       : CS 385
-    Assignment  : Midterm
     File        : cleaner.py
     Description : This script will shut down all running rest servers that are
-				  not labeled as persistent. Once these servers are shut down,
-				  an email will be sent with the names of these servers.
+		  not labeled as persistent. Once these servers are shut down,
+		  an email will be sent with the names of these servers.
 '''
 
 import sendgrid
