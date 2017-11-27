@@ -2,8 +2,8 @@
 	@file   : scale.py
 	@desc   : This script will scale a Google Cloud Project's rest servers to @param:instance_count.
 	@param  : project (str) name of the google cloud project.
-	@param  :	instance_count (int) number of servers to scale to.
-	@param  :	zone (str) name of default zone for creating a server.
+	@param  : instance_count (int) number of servers to scale to.
+	@param  : zone (str) name of default zone for creating a server.
 
 	Example:
 	>>> python3 scale.py project instance_count zone

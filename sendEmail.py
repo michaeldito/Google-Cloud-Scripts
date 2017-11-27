@@ -1,9 +1,9 @@
 """
 	@file   : sendEmail.py
 	@desc   : This function will send an email
-	@param  :	subject (str) subject of the email
+	@param  : subject (str) subject of the email
 	@param  : content (any type convertable to a str) content of the email
-	@param  :	from_email (str) sender of the email
+	@param  : from_email (str) sender of the email
 	@param  : to_email (str) recipient of the email
 	NOTE    : Your SENDGRID_API_KEY must be set in your environment. See their website
 	for details.
