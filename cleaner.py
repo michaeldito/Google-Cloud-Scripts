@@ -1,17 +1,8 @@
-<<<<<<< HEAD
 """
 	@file : cleaner.py
 	@desc : This script has the ability to shut down servers in a Google Cloud Project. There are
 	a few different ways to shut down servers. These options can be selected by using arguments
 	when calling the script.
-=======
-'''
-    File        : cleaner.py
-    Description : This script will shut down all running rest servers that are
-		  not labeled as persistent. Once these servers are shut down,
-		  an email will be sent with the names of these servers.
-'''
->>>>>>> 1aaa7b84fc1e098daf01d7a6918fea6832dc60bd
 
 	@arg  : project (str) [required] name of the google cloud project
 	@arg  : -all (flag) provide this argument to shut down all servers

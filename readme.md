@@ -9,11 +9,13 @@ In order to use these scripts, you must do a few things first:
 - To send emails when using cleaner.py (optional), make a free account with [SendGrid](https://sendgrid.com/), and download your api key to your working directory
 - All of these scripts use python3, this should also be installed
 - Install all requirements used in these scripts with `pip3 install -r requirements.txt`
+- Create an nginx load balancer in your GCP project, called 'loadbalancer-0'
 
 ## controller.py
 The Controller class provides a number of methods that can be used to interact with a project hosted on the Google Cloud Platform. It's attribute 'compute' provides access to the GCP API, and many methods of the class will use it. The purpose of this class is to provide the ability to retreive data about the instances within the project, and to later use this data to control the state of the project.
 
 ### Things to note about controller.py:
+This class assumes your REST servers have 'restserver' as a substring of their instance name. 
 If you are going to modify this class to your needs, these are a few lines of code you should be aware of.
 
 controller.py 284 `create_instance_from_image(self, my_image, zone)`  
@@ -24,12 +26,18 @@ controller.py 307 `'name': 'restserver-'+str(self.get_count_of_servers_with_name
 When your instance is created, this will be it's name.
 
 ## scale.py
+This script can be used to scale a project's servers to N number of instances.
 
-This script can be used to scale a project's servers to N number of instances. In order to scale up, an image must be saved of your server. To create an image, navigate to:
+scale.py 107 `update_load_balancer_upstream(c, 'us-central1-c', 'loadbalancer-0', 'fibonacci')`
+If you are customizing this script, you should mofiy the parameters to suit your needs, see the documentation in scale.py for more information.
+
+
+In order to scale up, an image must be saved of your server. To create an image, navigate to:
 
 Compute Engine > Images > Create Image
 
 Then select your Source Disk, and hit Create.  
+
 scale.py 76: `operation = c.create_instance_from_image('lab02-restserver', zone)`  
 If you wish to use your image, you must update the first parameter here.
 
