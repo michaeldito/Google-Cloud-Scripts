@@ -15,10 +15,10 @@
 	NOTE  : If -e option is indicated, then -fr and -to are required	
 
 	Examples:
-		>>> python3 cleaner.py project -all
-		>>> python3 cleaner.py project -rest
-		>>> python3 cleaner.py project -np_rest
-		>>> python3 cleaner.py project -all -e -fr sender@gmail.com -to recipient@gmail.com
+	>>> python3 cleaner.py project -all
+	>>> python3 cleaner.py project -rest
+	>>> python3 cleaner.py project -np_rest
+	>>> python3 cleaner.py project -all -e -fr sender@gmail.com -to recipient@gmail.com
 """
 
 from controller import Controller
@@ -33,7 +33,7 @@ def shut_down_servers(controller, servers):
 	Args:
 		controller (obj): An instantiated Controller object
 		servers (list) (json): see the following link
-			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
+		https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
 	Returns:
 		list (str): The names of the servers that have been shut down
 	"""

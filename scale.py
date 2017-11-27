@@ -6,7 +6,7 @@
 	@param  :	zone (str) name of default zone for creating a server.
 
 	Example:
-		>>> python3 scale.py project instance_count zone
+	>>> python3 scale.py project instance_count zone
 '''
 
 from controller import Controller

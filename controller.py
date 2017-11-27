@@ -1,12 +1,12 @@
 """
 	@file : controller.py
-  @desc : The Controller class provides a number of methods that can be used to interact with a project hosted
-  on the Google Cloud Platform. It's attribute 'compute' provides access to the GCP API, and many methods
+	@desc : The Controller class provides a number of methods that can be used to interact with a project hosted
+	on the Google Cloud Platform. It's attribute 'compute' provides access to the GCP API, and many methods
 	will use it. The purpose of this class is to provide the ability to retreive data about the instances
 	within the project, and use this data to control the state of the project.
 
 	Example:
-		>>> controller = Controller('project-name')
+	>>> controller = Controller('project-name')
 """
 
 import googleapiclient.discovery
@@ -38,7 +38,7 @@ class Controller:
 		Args:
 			zone (str): The name of the zone to search for instances in
 		Example:
-			>>> c.get_instances_in_zone('us-central1-c')
+		>>> c.get_instances_in_zone('us-central1-c')
 		Returns:
 			list (json): see the following link
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
@@ -56,7 +56,7 @@ class Controller:
 			zone (str): The name of the zone the instance is in
 			instance (str): The name of the instance
 		Example:
-			>>> c.get_instance_data('us-central1-c', 'lab03-controller')
+		>>> c.get_instance_data('us-central1-c', 'lab03-controller')
 		Returns:
 			list (json): see the following link
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#get
@@ -81,7 +81,7 @@ class Controller:
 			status (str): The status of the instance. It can be one of the following:
 			PROVISIONING, STAGING, RUNNING, STOPPING, STOPPED, SUSPENDING, SUSPENDED, TERMINATED
 		Example:
-			>>> c.get_instances('RUNNING')
+		>>> c.get_instances('RUNNING')
 		Returns:
 			list (json): see the following link
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
@@ -116,7 +116,7 @@ class Controller:
 			label (str): The label to look for
 			value (str): The value the label should not have
 		Example:
-			>>> c.get_running_rest_servers_without_label('persistent', 'true')
+		>>> c.get_running_rest_servers_without_label('persistent', 'true')
 		Returns:
 			list (json): see the following link
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
@@ -176,8 +176,8 @@ class Controller:
 		Returns:
 			str: The external ip address of the instance
 		Example:
-			>>> c.get_external_ip('us-central1-c', 'restserver-2')
-			'35.193.133.78'
+		>>> c.get_external_ip('us-central1-c', 'restserver-2')
+		'35.193.133.78'
 		"""
 		data = self.get_instance_data(zone, instance)
 		return data['networkInterfaces'][0]['accessConfigs'][0]['natIP']
@@ -190,8 +190,8 @@ class Controller:
 		Returns:
 			int: The number of instances that contain server_name as a substring of their names
 		Example:
-			>>> c.get_count_of_servers_with_name('restserver')
-			5
+		>>> c.get_count_of_servers_with_name('restserver')
+		5
 		"""
 		return [name.count(server_name) for name in self.get_instance_name_list()].count(1)
 
@@ -203,8 +203,8 @@ class Controller:
 		Returns:
 			dict: Details about operations in the zone
 		Example:
-			>>> c.get_operations_in_zone('us-central1-c')
-			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#list
+		>>> c.get_operations_in_zone('us-central1-c')
+		https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#list
 		"""
 		return self.compute.zoneOperations().list(project=self.project, zone=zone).execute()
 

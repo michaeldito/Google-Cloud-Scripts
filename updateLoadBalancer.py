@@ -1,13 +1,13 @@
 """
-	@file : updateLoadBalancer.py
-	@desc : This script will update an nginx load balancer's upstream, and proxy_pass settings.
-	@arg  : project (str): name of the google cloud project the load balancer is in.
+  @file : updateLoadBalancer.py
+  @desc : This script will update an nginx load balancer's upstream, and proxy_pass settings.
+  @arg  : project (str): name of the google cloud project the load balancer is in.
   @arg  : zone (str): The name of the zone the load balancer is in.
   @arg  : lb_name (str): The name of the load balancer.
   @arg  : proxy (str): The name of the proxy route.
 
   Example:
-    >>> python3 updateLoadBalancer.py project zone lb_name proxy
+  >>> python3 updateLoadBalancer.py project zone lb_name proxy
 """
 
 from controller import Controller
