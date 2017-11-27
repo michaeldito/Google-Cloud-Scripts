@@ -1,0 +1,7 @@
+python_http_client
+google-cloud
+google-api-python-client
+google-auth-httplib2
+flask
+colorama
+sendgrid

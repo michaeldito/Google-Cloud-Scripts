@@ -1,145 +1,312 @@
-#!/usr/bin/python3
-'''
-    Author      : Mike Dito
-    Class       : CS 385
-    Assignment  : Lab 03
-    File        : controller.py
-    Description : This class provides a number of methods that can be used to interact with a project hosted
-                  on the Google Cloud Platform. It provides methods for starting, stopping, and creating
-		  		  REST servers. It also has a method that will update the load balancer used in this project.
-		  		  That method will use a shell to log into the server, execute a list of commands, and then
-		  		  log out. The shell is described in the shell.py file.
-'''
+"""
+	@file : controller.py
+  @desc : The Controller class provides a number of methods that can be used to interact with a project hosted
+  on the Google Cloud Platform. It's attribute 'compute' provides access to the GCP API, and many methods
+	will use it. The purpose of this class is to provide the ability to retreive data about the instances
+	within the project, and use this data to control the state of the project.
+
+	Example:
+		>>> controller = Controller('project-name')
+"""
 
 import googleapiclient.discovery
-import shell
 import time
+import os
 
 class Controller:	
 	
 	def __init__(self, project):
+		""" 
+		The constructor will initialize the compute attribute, establishing a connection to the GCP API, and
+		set the project name.
+		Args:
+			project (str): The project name
+		"""
 		self.project = project
 		self.compute = googleapiclient.discovery.build('compute', 'v1')
 	
-	# Zone functions
-	def getZoneNamesList(self):
+	def get_zone_names_list(self):
+		""" 
+		This function will return a list of the names of all zones.
+		Returns: list (str): ['asia-east1-c', 'us-central1-c', ... ]
+		"""
 		return [zone['description'] for zone in self.compute.zones().list(project=self.project).execute()['items']] 
 
-	def getInstancesInZone(self, zone):
+	def get_instances_in_zone(self, zone):
+		""" 
+		This function will return a list of json data for all instances in a specific zone.
+		Args:
+			zone (str): The name of the zone to search for instances in
+		Example:
+			>>> c.get_instances_in_zone('us-central1-c')
+		Returns:
+			list (json): see the following link
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
+		"""
 		try:
 			instances = self.compute.instances().list(project=self.project, zone=zone).execute()['items']
 		except KeyError:
 			instances = []
 		return instances
 
-	# Instances functions
-	def getAllInstances(self):
-		instancesInAllZones = [self.getInstancesInZone(zone) for zone in self.getZoneNamesList()]
-		flattenedInstances = [instance for instanceList in instancesInAllZones for instance in instanceList if len(instance) != 0]
-		return flattenedInstances
+	def get_instance_data(self, zone, instance):
+		"""
+		This function will return all data associated with an instance.
+		Args:
+			zone (str): The name of the zone the instance is in
+			instance (str): The name of the instance
+		Example:
+			>>> c.get_instance_data('us-central1-c', 'lab03-controller')
+		Returns:
+			list (json): see the following link
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#get
+		"""
+		return self.compute.instances().get(project=self.project, zone=zone, instance=instance).execute()
 
-	def getInstances(self, status):
-		return [instance for instance in self.getAllInstances() if instance['status'] == status]
+	def get_all_instances(self):
+		"""
+		This function will return a list data about all instances in the project.
+		Returns:
+			list (json): see the following link
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
+		"""
+		instances_in_all_zones = [self.get_instances_in_zone(zone) for zone in self.get_zone_names_list()]
+		flattened_instances = [instance for instance_list in instances_in_all_zones for instance in instance_list if len(instance) != 0]
+		return flattened_instances
+ 
+	def get_instances(self, status):
+		"""
+		This function will return a list of instances with a specific status.
+		Args:
+			status (str): The status of the instance. It can be one of the following:
+			PROVISIONING, STAGING, RUNNING, STOPPING, STOPPED, SUSPENDING, SUSPENDED, TERMINATED
+		Example:
+			>>> c.get_instances('RUNNING')
+		Returns:
+			list (json): see the following link
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
+		"""
+		return [instance for instance in self.get_all_instances() if instance['status'] == status]
 
-	def getInstanceNameList(self):
-		return [instance['name'] for instance in self.getAllInstances()]
+	def get_instance_name_list(self):
+		"""
+		This function will return a list of the names of all instances in the project.
+		Returns:
+			list (str): ['lab03-controller', 'loadbalancer-0', 'restserver-0', ... ]
+		"""
+		return [instance['name'] for instance in self.get_all_instances()]
 
-	# Rest Server functions
-	def getRestServers(self, status):
-		return [instance for instance in self.getInstances(status) if 'restserver' in instance['name']]
+	def get_rest_servers(self, status):
+		"""
+		This function will return a list of data about all rest servers with a specific status.
+		Args:
+			status (str): The status of the instance. It can be one of the following:
+			PROVISIONING, STAGING, RUNNING, STOPPING, STOPPED, SUSPENDING, SUSPENDED, TERMINATED
+		Returns:
+			list (json): see the following link
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
+		"""
+		return [instance for instance in self.get_instances(status) if 'restserver' in instance['name']]
 	
-	def getRunningNonPersistentRestServers(self):
-		running = self.getRestServers('RUNNING')
+	def get_running_rest_servers_without_label(self, label, value):
+		"""
+		This function will return a list of data about all rest servers that are running, that also 
+		do not have a specific value for a provided label.
+		Args:
+			label (str): The label to look for
+			value (str): The value the label should not have
+		Example:
+			>>> c.get_running_rest_servers_without_label('persistent', 'true')
+		Returns:
+			list (json): see the following link
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
+		"""
+		running = self.get_rest_servers('RUNNING')
 		servers = []
 		for i in running:
 			if 'labels' not in i:
 				servers.append(i)
-			if 'labels' in i and 'persistent' in i['labels'] and i['labels']['persistent'] != 'true':
+			if 'labels' in i and label in i['labels'] and i['labels'][label] != value:
 				servers.append(i)
 		return servers
 
-	def getOldestRunningInstance(self):
-		running = self.getRestServers('RUNNING')
-		runningNames = [instance['name'] for instance in running]
-		runningStartTimes = [self.getInstanceOperations(instance, 'start') for instance in running]
+	def get_oldest_running_rest_server(self):
+		"""
+		This function will return a json object containing data about the oldest running rest server in 
+		the project.
+		Returns:
+			list (json): see the following link
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#list
+		"""
+		running = self.get_rest_servers('RUNNING')
+		running_names = [instance['name'] for instance in running]
+		running_start_times = [self.get_instance_operations(instance, 'start') for instance in running]
 		# Since we may have newly created instances running (that do not have a start operation yet)
 		# Make a list containing the oldest start operation for each instance that has one
-		oldestStartOps = [instance['items'][-1] for instance in runningStartTimes if 'items' in instance]
-		runningNamesWithStartOp = [instance['targetLink'].rsplit('/', 1)[-1] for instance in oldestStartOps]
+		oldest_start_operations = [instance['items'][-1] for instance in running_start_times if 'items' in instance]
+		running_names_with_start_operation = [instance['targetLink'].rsplit('/', 1)[-1] for instance in oldest_start_operations]
 		# Make a list containing instances that do not have a start operation
-		noStartOp = [instance for instance in running if instance['name'] not in runningNamesWithStartOp]
+		no_start_operations = [instance for instance in running if instance['name'] not in running_names_with_start_operation]
 		# Now get the insert operations for those instances
-		insertTimes = [self.getInstanceOperations(instance, 'insert') for instance in noStartOp]
+		insert_times = [self.get_instance_operations(instance, 'insert') for instance in no_start_operations]
 		# Now add insert operations for the newly created instances to the oldest start operation list
-		for instance in insertTimes:
-			oldestStartOps.append(instance['items'][0])
-		# We can not determine the oldest running instance
-		oldest = oldestStartOps[0]
-		for instance in oldestStartOps:
+		for instance in insert_times:
+			oldest_start_operations.append(instance['items'][0])
+		# We can now determine the oldest running instance
+		oldest = oldest_start_operations[0]
+		for instance in oldest_start_operations:
 			if instance['startTime'] < oldest['startTime']:
 				oldest = instance
 		return oldest
 		
-	# Internal/External IP functions
-	def getAllRestServerInternalIPs(self):
-		return [instance['networkInterfaces'][0]['networkIP'] for instance in self.getInstances('RUNNING') if 'restserver' in instance['name']]
+	def get_all_running_rest_server_internal_ips(self):
+		"""
+		This function will return a list of internal ip addresses for all running rest servers in the project.
+		Returns:
+			list (str): ['10.128.0.5']
+		"""
+		return [instance['networkInterfaces'][0]['networkIP'] for instance in self.get_instances('RUNNING') if 'restserver' in instance['name']]
 
-	def getLoadBalancerExternalIP(self):
-		return [instance['networkInterfaces'][0]['accessConfigs'][0]['natIP'] for instance in self.getInstances('RUNNING') if 'loadbalancer' in instance['name']][0]
+	def get_external_ip(self, zone, instance):
+		"""
+		This function will return the external ip address for a specific instance in the project.
+		Args:
+			zone (str): The zone the instance is located in
+			instance (str): The name of the instance
+		Returns:
+			str: The external ip address of the instance
+		Example:
+			>>> c.get_external_ip('us-central1-c', 'restserver-2')
+			'35.193.133.78'
+		"""
+		data = self.get_instance_data(zone, instance)
+		return data['networkInterfaces'][0]['accessConfigs'][0]['natIP']
 
-	# Function used when naming new rest servers
-	def getCountOfServersWithName(self, serverName):
-		return [name.count(serverName) for name in self.getInstanceNameList()].count(1)
+	def get_count_of_servers_with_name(self, server_name):
+		"""
+		This function will return the number of servers that contain server_name as a substring of its name.
+		Args:
+			server_name (str): The name to search for
+		Returns:
+			int: The number of instances that contain server_name as a substring of their names
+		Example:
+			>>> c.get_count_of_servers_with_name('restserver')
+			5
+		"""
+		return [name.count(server_name) for name in self.get_instance_name_list()].count(1)
 
-	# Operations functions
-	def getOperationsInZone(self, z):
-		return self.compute.zoneOperations().list(project=self.project, zone=z).execute()
+	def get_operations_in_zone(self, zone):
+		"""
+		This function will return data about recent operations in a specific zone.
+		Args:
+			zone (str): The name of the zone to look for operations in
+		Returns:
+			dict: Details about operations in the zone
+		Example:
+			>>> c.get_operations_in_zone('us-central1-c')
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#list
+		"""
+		return self.compute.zoneOperations().list(project=self.project, zone=zone).execute()
 
-	def getInstanceOperations(self, instanceJSON, opType):
-		zone = instanceJSON['zone'].rsplit('/', 1)[-1]
-		instanceId = instanceJSON['id']
-		filterBy = '(targetId eq '+instanceId+')(operationType eq '+opType+')'
-		return self.compute.zoneOperations().list(project=self.project, zone=zone, filter=filterBy).execute()
+	def get_instance_operations(self, instance_json, operation_type):
+		"""
+		This function will return operation data for a specific instance, and a specific operation type.
+		Args:
+			instance_json (json): Information about the instance. Input should match the following link:
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
+			operation_type (str): The operation type
+		Example:
+			* see get_oldest_running_rest_server()
+		Returns:
+			dict: Details about operations in the zone
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#list
+		"""
+		zone = instance_json['zone'].rsplit('/', 1)[-1]
+		instance_id = instance_json['id']
+		filter_by = '(targetId eq '+instance_id+')(operationType eq '+operation_type+')'
+		return self.compute.zoneOperations().list(project=self.project, zone=zone, filter=filter_by).execute()
 
-	def getOperationResult(self, operation):
+	def get_operation_result(self, operation):
+		"""
+		This function will return the result of an operation.
+		Args:
+			operation (json): Data about the operation
+		Returns:
+			dict: details about the operation
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#get
+		"""
 		zone = operation['zone'].rsplit('/',1)[-1]
 		return self.compute.zoneOperations().get(project=self.project, zone=zone, operation=operation['name']).execute()
 
-#	def getServersAvailableWithName(self, name):
-#		return [instance for instance in self.getInstances('TERMINATED') if name in instance['disks'][0]['deviceName']]
-	
-	def waitForOperation(self, operation):
-		print('{:<50}'.format('Waiting for operation to finish ...'), end='', flush=True),
+	def wait_for_operation(self, operation):
+		"""
+		This function will wait for a provided operation to finish, and report any errors if they occur.
+		Args:
+			operation (json): Data about the current operation
+		Example:
+			* see scale.py
+		Returns:
+			dict: Details about the operation
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#get
+		"""
 		while True:
-			result = self.getOperationResult(operation)
+			result = self.get_operation_result(operation)
 			if result['status'] == 'DONE':
-				print(Fore.CYAN + '[DONE]')
 				if 'error' in result:
 					raise Exception(result['error'])
 				return result
 			time.sleep(1)
 
-	def startInstance(self, name, zone):
+	def start_instance(self, name, zone):
+		"""
+		This function will start an instance.
+		Args:
+			name (str): The name of the instance to start
+			zone (str): The zone it is located in
+		Returns:
+			dict: Details about the operation
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#start
+		"""
 		return self.compute.instances().start(project=self.project, zone=zone, instance=name).execute()
 
-	def stopInstance(self, name, zone):
+	def stop_instance(self, name, zone):
+		"""
+		This function will stop an instance.
+		Args:
+			name (str): The name of the instance to stop
+			zone (str): The zone it is located in
+		Returns:
+			dict: Details about the operation
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#start
+		"""
 		return self.compute.instances().stop(project=self.project, zone=zone, instance=name).execute()
 
-	def createInstanceFromImage(self, myImage, zone):
+	def create_instance_from_image(self, my_image, zone):
+		"""
+		This function will create a new instance, from a previously made image, in a specific zone.
+		It will attach to the instance a startup script named 'startup.sh' that should be located
+		in the project directory.
+		Args:
+			my_image (str): The name of the image to use
+			zone (str): The name of the zone to create the instance in
+		Returns:
+			dict: Details about the operation
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#insert
+		"""
 		# Get the image requested
-		image = self.compute.images().get(project=self.project, image=myImage).execute()
-		sourceDiskImage = image['selfLink']
+		image = self.compute.images().get(project=self.project, image=my_image).execute()
+		source_disk_image = image['selfLink']
 		
 		# Configure the machine
-		machineType = 'zones/' + zone + '/machineTypes/f1-micro'
+		machine_type = 'zones/' + zone + '/machineTypes/f1-micro'
 
 		# Read in the startup-script
-		startupScript = open('startup.sh', 'r').read()
+		startup_script = open('startup.sh', 'r').read()
 
 		# Setup the config
 		config = {
-			'name': 'restserver-'+str(self.getCountOfServersWithName('restserver')),
-			'machineType': machineType,
+			'name': 'restserver-'+str(self.get_count_of_servers_with_name('restserver')),
+			'machineType': machine_type,
 
 			'tags': {
 				'items': [
@@ -154,9 +321,9 @@ class Controller:
 					'boot': True,
 					'autoDelete': True,
 					'initializeParams': {
-						'sourceImage': sourceDiskImage,
+						'sourceImage': source_disk_image,
 					},
-					'deviceName':'restserver-'+str(self.getCountOfServersWithName('restserver'))
+					'deviceName':'restserver-'+str(self.get_count_of_servers_with_name('restserver'))
 				}
 			],
 		
@@ -183,40 +350,10 @@ class Controller:
 				'items': [{
 					# Startup script is automatically executed by the instance upon startup
 					'key': 'startup-script',
-					'value': startupScript
+					'value': startup_script
 				}]
 			}	
 		}
 	
 		# Now create the instace and return it
 		return self.compute.instances().insert(project=self.project, zone=zone, body=config).execute()
-
-	def getUpdatedUpstream(self):
-		runningIPs = self.getAllRestServerInternalIPs()
-		upstream = 'upstream fibonacci { '
-		for ip in runningIPs:
-			upstream += ' server ' + ip + ';'
-		upstream += ' }'
-		return upstream
-
-	def updateLoadBalancerUpstream(self):
-		# First we need our IPs and our data
-		print('Getting Load Balancer IP and upstream data')
-		loadBalancerExtIP = self.getLoadBalancerExternalIP()
-		updatedData = self.getUpdatedUpstream()
-		# Get file names
-		print('Getting file names needed')
-		defaultFile = "/etc/nginx/sites-available/default"
-		replaceFile = "/etc/nginx/sites-available/replace"
-		replaceBackup = "/etc/nginx/sites-available/replace.backup"
-		# Create commands needed
-		print('Creating commands')
-		updateUpstream = "sudo sed -i -e \'s/REPLACE_THIS/" + updatedData + "/g\' "+ replaceFile + ""
-		updateDefault = "sudo cp " + replaceFile + " " + defaultFile + ""
-		copyReplaceBackup = "sudo cp " + replaceBackup + " " + replaceFile + ""
-		reloadNginx = "sudo service nginx reload"
-		logout = "logout"
-		# Put commands in a list, then run those commands on the LB server
-		print('Executing commands')
-		commands = [updateUpstream, updateDefault, copyReplaceBackup, reloadNginx, logout]
-		shell.runCommandsInShell('mdito', None, loadBalancerExtIP, commands)

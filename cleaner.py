@@ -1,73 +1,83 @@
-'''
-    Author      : Mike Dito
-    Class       : CS 385
-    Assignment  : Midterm
-    File        : cleaner.py
-    Description : This script will shut down all running rest servers that are
-				  not labeled as persistent. Once these servers are shut down,
-				  an email will be sent with the names of these servers.
-'''
+"""
+	@file : cleaner.py
+	@desc : This script has the ability to shut down servers in a Google Cloud Project. There are
+	a few different ways to shut down servers. These options can be selected by using arguments
+	when calling the script.
 
-import sendgrid
-import os
-import argparse
-import sys
+	@arg  : project (str) [required] name of the google cloud project
+	@arg  : -all (flag) provide this argument to shut down all servers
+	@arg  : -rest (flag) provide this argument to shut down all REST servers
+	@arg  : -np_rest (flag) provide this argument to shut down all REST servers not labeled as persistent
+	NOTE  : Only choose one option out of (-all, -rest, -np_rest)
+	@arg  :	-e  (flag) [optional] indicates an email will be sent with names of servers shut down
+	@arg  : -fr (flag) [optional] [required if -e is true] should precede the senders email address
+	@arg  : -to (flag) [optional] [required if -e is true] should precede the recipients email address
+	NOTE  : If -e option is indicated, then -fr and -to are required	
 
-from sendgrid.helpers.mail import *
+	Examples:
+		>>> python3 cleaner.py project -all
+		>>> python3 cleaner.py project -rest
+		>>> python3 cleaner.py project -np_rest
+		>>> python3 cleaner.py project -all -e -fr sender@gmail.com -to recipient@gmail.com
+"""
+
 from controller import Controller
+from argparse import ArgumentParser
+from sys import argv
 from colorama import init, Fore
-from python_http_client.exceptions import UnauthorizedError
+from sendEmail import *
 
-def sendEmail(project, instances, fromEmail, toEmail):
-	sg = sendgrid.SendGridAPIClient(apikey=os.environ.get('SENDGRID_API_KEY'))
-	fromEmail = Email(fromEmail)
-	toEmail = Email(toEmail)
-	subject = project + ' Instances Shut Down'
-	content = Content("text/plain", str(instances))
-	mail = Mail(fromEmail, subject, toEmail, content)
-	try:
-		response = sg.client.mail.send.post(request_body=mail.get())
-		if response.status_code == 202:
-			print(Fore.GREEN + '[DONE]')
-		else:
-			print(Fore.RED + '[FAILED]')
-	except UnauthorizedError:
-		print(Fore.RED + '[FAILED]')
-		print(Fore.CYAN + 'Did you remember to set your sendgrid api?')
-
-
-def shutDownAllRestServers(project):
-	c = Controller(project)
-	print('{:<50}'.format('Getting non-persistent running servers ...'), end='', flush=True)
-	running = c.getRunningNonPersistentRestServers()
-	print(Fore.GREEN + '[DONE]')
-	print('Beginning to shutdown instances ...')
-	serversShutDown = []
-	for instance in running:
-		print('Shutting down ' + instance['name'])
-		zone = instance['zone'].rsplit('/', 1)[-1]
-		instance = instance['name']
-		operation = c.stopInstance(instance, zone)
-		result = c.waitForOperation(operation)
+def shut_down_servers(controller, servers):
+	"""
+	This function will shut down all instances within the argument list object, servers.
+	Args:
+		controller (obj): An instantiated Controller object
+		servers (list) (json): see the following link
+			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
+	Returns:
+		list (str): The names of the servers that have been shut down
+	"""
+	servers_shut_down = []
+	for instance in servers:
+		print('{:<70}'.format('Shutting down {} ...'.format(instance['name'])), end='', flush=True),
+		zone_name = instance['zone'].rsplit('/', 1)[-1]
+		instance_name = instance['name']
+		operation = controller.stop_instance(instance_name, zone_name)
+		result = controller.wait_for_operation(operation)
 		if result['status'] == 'DONE':
-			print(instance)
-			serversShutDown.append(instance)
-	return serversShutDown
+			print(Fore.GREEN + '[COMPLETE]')
+			servers_shut_down.append(instance_name)
+	print('{:<70}'.format('Shutdown status'), end='', flush=True),
+	print(Fore.GREEN + '[COMPLETE]')
+	return servers_shut_down
 
-def main(project, email, fromEmail, toEmail):
+def main(project, all, rest, non_persistent_rest, email, from_email, to_email):
 	init(autoreset=True)
-	serversShutDown = shutDownAllRestServers(project)
+	controller = Controller(project)
+	if all:
+		print('Beginning to shut down all servers in {}'.format(project))
+		servers_to_shut_down = controller.get_instances('RUNNING')
+	elif rest:
+		print('Beginning to shut down all REST servers in {}'.format(project))
+		servers_to_shut_down = controller.get_rest_servers('RUNNING')
+	elif non_persistent_rest:
+		print('Beginning to shut down all non persistent REST servers in {}'.format(project))
+		servers_to_shut_down = controller.get_running_rest_servers_without_label('persistent', 'true')
+	servers_shut_down = shut_down_servers(controller, servers_to_shut_down)
 	if email:
-		print('{:<50}'.format('Sending email ...'), end='', flush=True)
-		sendEmail(project, serversShutDown, fromEmail, toEmail)
-	print('Exiting cleaner.py')
+		send_email(project + ' Instances Shut Down', str(servers_shut_down), from_email, to_email)
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(
-		description='This script will shut down all rest servers not labeled as persistent in the project specified')
+	parser = ArgumentParser(
+		description='This script will shut down all REST servers not labeled as persistent in \
+		a Google Cloud project - with an option to send an email containing the names of the  \
+		servers shut down ')
 	parser.add_argument('project', help='the name of your google cloud project')
-	parser.add_argument('-e', help='send an email containing the names of servers shut down', action='store_true')
-	parser.add_argument('-fr', required='-e' in sys.argv, help='email will be sent from this address')
-	parser.add_argument('-to', required='-e' in sys.argv, help='email will be sent to this address')
+	parser.add_argument('-all', help='flag to indicate all servers in project will be shut down', action='store_true')
+	parser.add_argument('-rest', help='flag to indicate all REST servers will be shut down', action='store_true')
+	parser.add_argument('-np_rest', help='flag to indicate all non-persistent REST servers will be shut down', action='store_true')
+	parser.add_argument('-e', help='flag to send an email containing the names of servers shut down', action='store_true')
+	parser.add_argument('-fr', required='-e' in argv, help='sender email')
+	parser.add_argument('-to', required='-e' in argv, help='recipient email')
 	args = parser.parse_args()
-	main(args.project, args.e, args.fr, args.to)
+	main(args.project, args.all, args.rest, args.np_rest, args.e, args.fr, args.to)
