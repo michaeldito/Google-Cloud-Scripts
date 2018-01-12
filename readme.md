@@ -11,18 +11,20 @@ In order to use these scripts, you must do a few things first:
 - Install all requirements used in these scripts with `pip3 install -r requirements.txt`
 - Create an nginx load balancer in your GCP project, called 'loadbalancer-0'
 
-## controller.py
-The Controller class provides a number of methods that can be used to interact with a project hosted on the Google Cloud Platform. It's attribute 'compute' provides access to the GCP API, and many methods of the class will use it. The purpose of this class is to provide the ability to retreive data about the instances within the project, and to later use this data to control the state of the project.
+## googlecloudclient.py
+The GoogleCloudClient class provides a number of methods that can be used to interact with a project hosted on the Google Cloud Platform. It's attribute 'compute' provides access to the GCP API, and many methods of the class will use it. The purpose of this class is to provide the ability to retreive data about the instances within the project.
 
-### Things to note about controller.py:
+### Things to note about googlecloudclient.py:
 This class assumes your REST servers have 'restserver' as a substring of their instance name. 
 If you are going to modify this class to your needs, these are a few lines of code you should be aware of.
 
-controller.py 284 `create_instance_from_image(self, my_image, zone)`  
+googlecloudclient.py 284 `create_instance_from_image(self, my_image, zone)`  
 This function requires an image name as an argument.   
-controller.py 304 `startup_script = open('startup.sh', 'r').read()`  
+
+googlecloudclient.py 304 `startup_script = open('startup.sh', 'r').read()`  
 When creating a new instance, a startup bash script should be in your working directory.  
-controller.py 307 `'name': 'restserver-'+str(self.get_count_of_servers_with_name('restserver')),`  
+
+googlecloudclient.py 307 `'name': 'restserver-'+str(self.get_count_of_servers_with_name('restserver')),`  
 When your instance is created, this will be it's name.
 
 ## scale.py

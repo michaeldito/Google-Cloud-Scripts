@@ -1,19 +1,19 @@
 """
-	@file : controller.py
-	@desc : The Controller class provides a number of methods that can be used to interact with a project hosted
+	@file : googlecloudclient.py
+	@desc : The GoogleCloudClient class provides a number of methods that can be used to interact with a project hosted
 	on the Google Cloud Platform. It's attribute 'compute' provides access to the GCP API, and many methods
 	will use it. The purpose of this class is to provide the ability to retreive data about the instances
-	within the project, and use this data to control the state of the project.
+	within the project.
 
 	Example:
-	>>> controller = Controller('project-name')
+	>>> client = GoogleCloudClient('project-name')
 """
 
 import googleapiclient.discovery
 import time
 import os
 
-class Controller:	
+class GoogleCloudClient:	
 	
 	def __init__(self, project):
 		""" 
@@ -22,6 +22,7 @@ class Controller:
 		Args:
 			project (str): The project name
 		"""
+
 		self.project = project
 		self.compute = googleapiclient.discovery.build('compute', 'v1')
 	
@@ -30,6 +31,7 @@ class Controller:
 		This function will return a list of the names of all zones.
 		Returns: list (str): ['asia-east1-c', 'us-central1-c', ... ]
 		"""
+
 		return [zone['description'] for zone in self.compute.zones().list(project=self.project).execute()['items']] 
 
 	def get_instances_in_zone(self, zone):
@@ -43,6 +45,7 @@ class Controller:
 			list (json): see the following link
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
 		"""
+		
 		try:
 			instances = self.compute.instances().list(project=self.project, zone=zone).execute()['items']
 		except KeyError:
@@ -61,6 +64,7 @@ class Controller:
 			list (json): see the following link
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#get
 		"""
+
 		return self.compute.instances().get(project=self.project, zone=zone, instance=instance).execute()
 
 	def get_all_instances(self):
@@ -70,6 +74,7 @@ class Controller:
 			list (json): see the following link
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
 		"""
+
 		instances_in_all_zones = [self.get_instances_in_zone(zone) for zone in self.get_zone_names_list()]
 		flattened_instances = [instance for instance_list in instances_in_all_zones for instance in instance_list if len(instance) != 0]
 		return flattened_instances
@@ -86,6 +91,7 @@ class Controller:
 			list (json): see the following link
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
 		"""
+
 		return [instance for instance in self.get_all_instances() if instance['status'] == status]
 
 	def get_instance_name_list(self):
@@ -94,6 +100,7 @@ class Controller:
 		Returns:
 			list (str): ['lab03-controller', 'loadbalancer-0', 'restserver-0', ... ]
 		"""
+
 		return [instance['name'] for instance in self.get_all_instances()]
 
 	def get_rest_servers(self, status):
@@ -106,6 +113,7 @@ class Controller:
 			list (json): see the following link
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
 		"""
+
 		return [instance for instance in self.get_instances(status) if 'restserver' in instance['name']]
 	
 	def get_running_rest_servers_without_label(self, label, value):
@@ -121,6 +129,7 @@ class Controller:
 			list (json): see the following link
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
 		"""
+
 		running = self.get_rest_servers('RUNNING')
 		servers = []
 		for i in running:
@@ -138,6 +147,7 @@ class Controller:
 			list (json): see the following link
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#list
 		"""
+
 		running = self.get_rest_servers('RUNNING')
 		running_names = [instance['name'] for instance in running]
 		running_start_times = [self.get_instance_operations(instance, 'start') for instance in running]
@@ -165,6 +175,7 @@ class Controller:
 		Returns:
 			list (str): ['10.128.0.5']
 		"""
+
 		return [instance['networkInterfaces'][0]['networkIP'] for instance in self.get_instances('RUNNING') if 'restserver' in instance['name']]
 
 	def get_external_ip(self, zone, instance):
@@ -179,6 +190,7 @@ class Controller:
 		>>> c.get_external_ip('us-central1-c', 'restserver-2')
 		'35.193.133.78'
 		"""
+
 		data = self.get_instance_data(zone, instance)
 		return data['networkInterfaces'][0]['accessConfigs'][0]['natIP']
 
@@ -193,6 +205,7 @@ class Controller:
 		>>> c.get_count_of_servers_with_name('restserver')
 		5
 		"""
+
 		return [name.count(server_name) for name in self.get_instance_name_list()].count(1)
 
 	def get_operations_in_zone(self, zone):
@@ -206,6 +219,7 @@ class Controller:
 		>>> c.get_operations_in_zone('us-central1-c')
 		https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#list
 		"""
+
 		return self.compute.zoneOperations().list(project=self.project, zone=zone).execute()
 
 	def get_instance_operations(self, instance_json, operation_type):
@@ -221,6 +235,7 @@ class Controller:
 			dict: Details about operations in the zone
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#list
 		"""
+
 		zone = instance_json['zone'].rsplit('/', 1)[-1]
 		instance_id = instance_json['id']
 		filter_by = '(targetId eq '+instance_id+')(operationType eq '+operation_type+')'
@@ -235,6 +250,7 @@ class Controller:
 			dict: details about the operation
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#get
 		"""
+
 		zone = operation['zone'].rsplit('/',1)[-1]
 		return self.compute.zoneOperations().get(project=self.project, zone=zone, operation=operation['name']).execute()
 
@@ -249,6 +265,7 @@ class Controller:
 			dict: Details about the operation
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.zoneOperations.html#get
 		"""
+
 		while True:
 			result = self.get_operation_result(operation)
 			if result['status'] == 'DONE':
@@ -279,6 +296,7 @@ class Controller:
 			dict: Details about the operation
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#start
 		"""
+
 		return self.compute.instances().stop(project=self.project, zone=zone, instance=name).execute()
 
 	def create_instance_from_image(self, my_image, zone):
@@ -293,6 +311,7 @@ class Controller:
 			dict: Details about the operation
 			https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#insert
 		"""
+
 		# Get the image requested
 		image = self.compute.images().get(project=self.project, image=my_image).execute()
 		source_disk_image = image['selfLink']

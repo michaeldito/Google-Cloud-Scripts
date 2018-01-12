@@ -21,17 +21,17 @@
 	>>> python3 cleaner.py project -all -e -fr sender@gmail.com -to recipient@gmail.com
 """
 
-from controller import Controller
+from googlecloudclient import GoogleCloudClient
 from argparse import ArgumentParser
 from sys import argv
 from colorama import init, Fore
 from sendEmail import *
 
-def shut_down_servers(controller, servers):
+def shut_down_servers(client, servers):
 	"""
 	This function will shut down all instances within the argument list object, servers.
 	Args:
-		controller (obj): An instantiated Controller object
+		client (obj): An instantiated GoogleCloudClient object
 		servers (list) (json): see the following link
 		https://developers.google.com/resources/api-libraries/documentation/compute/v1/python/latest/compute_v1.instances.html#list
 	Returns:
@@ -42,8 +42,8 @@ def shut_down_servers(controller, servers):
 		print('{:<70}'.format('Shutting down {} ...'.format(instance['name'])), end='', flush=True),
 		zone_name = instance['zone'].rsplit('/', 1)[-1]
 		instance_name = instance['name']
-		operation = controller.stop_instance(instance_name, zone_name)
-		result = controller.wait_for_operation(operation)
+		operation = client.stop_instance(instance_name, zone_name)
+		result = client.wait_for_operation(operation)
 		if result['status'] == 'DONE':
 			print(Fore.GREEN + '[COMPLETE]')
 			servers_shut_down.append(instance_name)
@@ -53,17 +53,17 @@ def shut_down_servers(controller, servers):
 
 def main(project, all, rest, non_persistent_rest, email, from_email, to_email):
 	init(autoreset=True)
-	controller = Controller(project)
+	client = GoogleCloudClient(project)
 	if all:
 		print('Beginning to shut down all servers in {}'.format(project))
-		servers_to_shut_down = controller.get_instances('RUNNING')
+		servers_to_shut_down = client.get_instances('RUNNING')
 	elif rest:
 		print('Beginning to shut down all REST servers in {}'.format(project))
-		servers_to_shut_down = controller.get_rest_servers('RUNNING')
+		servers_to_shut_down = client.get_rest_servers('RUNNING')
 	elif non_persistent_rest:
 		print('Beginning to shut down all non persistent REST servers in {}'.format(project))
-		servers_to_shut_down = controller.get_running_rest_servers_without_label('persistent', 'true')
-	servers_shut_down = shut_down_servers(controller, servers_to_shut_down)
+		servers_to_shut_down = client.get_running_rest_servers_without_label('persistent', 'true')
+	servers_shut_down = shut_down_servers(client, servers_to_shut_down)
 	if email:
 		send_email(project + ' Instances Shut Down', str(servers_shut_down), from_email, to_email)
 

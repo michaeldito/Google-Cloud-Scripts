@@ -9,7 +9,7 @@
 	>>> python3 scale.py project instance_count zone
 '''
 
-from controller import Controller
+from googlecloudclient import GoogleCloudClient
 from random import randint
 from googleapiclient.errors import HttpError
 from argparse import ArgumentParser
@@ -44,7 +44,7 @@ def scale(project, instance_count, zone):
 		return
 
 	print('Scaling project {} to {} rest servers'.format(project, str(instance_count)))
-	c = Controller(project)
+	c = GoogleCloudClient(project)
 	print('{:<70}'.format('Searching for running REST servers ...'), end='', flush=True),
 	running_rest_servers = c.get_rest_servers('RUNNING')
 	print(Fore.GREEN + '[COMPLETE]')

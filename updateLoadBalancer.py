@@ -10,21 +10,21 @@
   >>> python3 updateLoadBalancer.py project zone lb_name proxy
 """
 
-from controller import Controller
+from googlecloudclient import GoogleCloudClient
 from argparse import ArgumentParser
 from colorama import init, Fore
 import os
 
-def create_upstream(controller, upstream_name):
+def create_upstream(client, upstream_name):
   """
   This function will generate the upstream data that will be uploaded to the load balancer.
   Args:
-    controller (obj): An instantiated Controller object
+    client (obj): An instantiated GoogleCloudClient object
     upstream_name (str): The name of the upstream route
   Returns:
     str: the upstream data
   """
-  running_ips = controller.get_all_running_rest_server_internal_ips()
+  running_ips = client.get_all_running_rest_server_internal_ips()
   if len(running_ips) == 0:
     running_ips.append('00.000.0.00')
   upstream = 'upstream ' + upstream_name + ' { '
@@ -33,13 +33,13 @@ def create_upstream(controller, upstream_name):
   upstream += ' }'
   return upstream
 
-def update_load_balancer_upstream(controller, zone, lb_name, proxy):
+def update_load_balancer_upstream(client, zone, lb_name, proxy):
   """
   This function will update an nginx load balancer in a Google Cloud project.
   Specifically, it will update it's upstream, and then reload nginx so that the
   changes take effect.
   Args:
-    controller (obj): An instantiated Controller object
+    client (obj): An instantiated GoogleCloudClient object
     zone (str): The name of the zone the load balancer is in
     lb_name (str): The name of the load balancer
     proxy (str): The name of the proxy route
@@ -49,19 +49,19 @@ def update_load_balancer_upstream(controller, zone, lb_name, proxy):
   # First we need our IPs and our data
   print('Preparing to update {} upstream'.format(lb_name))
   #	Make sure the load balancer is on, if not turn it on
-  lb_data = controller.get_instance_data(zone, lb_name)
+  lb_data = client.get_instance_data(zone, lb_name)
   if lb_data['status'] != 'RUNNING':
     print('{:<70}'.format('{} was off, starting it now ... '.format(lb_name)), end='', flush=True),
-    operation = controller.start_instance(lb_name, zone)
-    result = controller.wait_for_operation(operation)
+    operation = client.start_instance(lb_name, zone)
+    result = client.wait_for_operation(operation)
     if result['status'] == 'DONE':
       print(Fore.GREEN + '[COMPLETE]')
   # Now get the data we need
   print('{:<70}'.format('Fetching {} external IP address ... '.format(lb_name)), end='', flush=True),
-  lb_external_ip = controller.get_external_ip(zone, lb_name)
+  lb_external_ip = client.get_external_ip(zone, lb_name)
   print(Fore.GREEN + '[COMPLETE]')
   print('{:<70}'.format('Creating upstream and proxy_pass data ... '), end='', flush=True),
-  upstream_data = create_upstream(controller, proxy)
+  upstream_data = create_upstream(client, proxy)
   print(Fore.GREEN + '[COMPLETE]')
   # Edit a local file to send to nginx
   print('{:<70}'.format('Creating nginx/sites-available/default file ... '), end='', flush=True),
@@ -81,8 +81,8 @@ def update_load_balancer_upstream(controller, zone, lb_name, proxy):
 
 def main(project, zone, lb, proxy):
   init(autoreset=True)
-  controller = Controller(project)
-  update_load_balancer_upstream(controller, zone, lb, proxy)
+  client = GoogleCloudClient(project)
+  update_load_balancer_upstream(client, zone, lb, proxy)
 
 if __name__ == '__main__':
   parser = ArgumentParser(description='This script will update the upstream and proxy_pass of an \
